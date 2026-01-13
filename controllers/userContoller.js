@@ -50,9 +50,10 @@ class UserContoller {
 
   async logout(req, res, next) {
     try {
-      const { refreshToken } = req.body
+      const { refreshToken } = req.cookies
       const tokenData = await userService.logout(refreshToken)
       console.log('TOKEN DATA AFTER LOGOUT', tokenData)
+      res.clearCookie()
       return res.json(tokenData)
     } catch (err) {
       next(err)
