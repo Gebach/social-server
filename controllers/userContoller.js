@@ -28,6 +28,7 @@ class UserContoller {
   }
 
   async getUsers(req, res, next) {
+    console.log(123)
     try {
       const users = await userService.getUsers()
       return res.json(users)
@@ -37,11 +38,13 @@ class UserContoller {
   }
 
   async getUser(req, res, next) {
-    const { userID } = req.body
+    console.log(123)
+    const { uid } = req.params
+    console.log(33333)
 
     try {
-      const userData = await userService.getUser(userID)
-      console.log(userData)
+      const userData = await userService.getUser(uid)
+      console.log('GET USER', userData)
       return res.json(userData)
     } catch (err) {
       next(err)
@@ -52,7 +55,6 @@ class UserContoller {
     try {
       const { refreshToken } = req.cookies
       const tokenData = await userService.logout(refreshToken)
-      console.log('TOKEN DATA AFTER LOGOUT', tokenData)
       res.clearCookie()
       return res.json(tokenData)
     } catch (err) {
@@ -76,7 +78,6 @@ class UserContoller {
     try {
       const { userData } = req.body
       const user = await userService.changeUserData(userData)
-      console.log(user)
 
       return res.json(user)
     } catch (err) {
@@ -88,7 +89,6 @@ class UserContoller {
     try {
       const { oldPassword, newPassword, userID } = req.body
       const status = await userService.changeUserPassword(oldPassword, newPassword, userID)
-      console.log(status)
 
       return res.json(status)
     } catch (err) {
@@ -97,13 +97,11 @@ class UserContoller {
   }
 
   async uploadProfileImage(req, res, next) {
-    console.log('FILE', req)
-    console.log('FILE DATA', req.file)
     const { userId } = req.body
     try {
       const imagePath = await userService.uploadProfileImage(
         `${process.env.ORIGIN_FILES_URL}/${req.file.filename}`,
-        userId
+        userId,
       )
       return res.json(imagePath)
     } catch (err) {
@@ -127,9 +125,72 @@ class UserContoller {
 
     try {
       const userData = await userService.activateProfile(activationLink)
-      console.log('ACTIVATE USERDATA', userData)
 
       return res.redirect(`${process.env.HOST_URL}/profile/${userData.id}`)
+    } catch (err) {
+      next(err)
+    }
+  }
+
+  async addFriend(req, res, next) {
+    const { friendID } = req.params
+    const userId = req.user.id
+    try {
+      const userData = await userService.addFriend(friendID, userId)
+
+      return res.json(userData)
+    } catch (err) {
+      next(err)
+    }
+  }
+
+  async acceptFriend(req, res, next) {
+    const { friendID } = req.body
+    const userId = req.user.id
+
+    try {
+      const userData = await userService.acceptFriend(friendID, userId)
+
+      return res.json(userData)
+    } catch (err) {
+      next(err)
+    }
+  }
+
+  async deleteFriend(req, res, next) {
+    const { friendID } = req.body
+    const userId = req.user.id
+
+    try {
+      const userData = await userService.deleteFriend(friendID, userId)
+
+      return res.json(userData)
+    } catch (err) {
+      next(err)
+    }
+  }
+
+  async cancelFriendRequest(req, res, next) {
+    const { friendID } = req.body
+    const userId = req.user.id
+
+    try {
+      const userData = await userService.cancelFriendRequest(friendID, userId)
+
+      return res.json(userData)
+    } catch (err) {
+      next(err)
+    }
+  }
+
+  async getFriends(req, res, next) {
+    console.log('USER', req.user)
+    const userId = req.params.userId === 'undefined' ? req.user.id : req.params.userId
+
+    try {
+      const friendsList = await userService.getFriends(userId)
+
+      return res.json(friendsList)
     } catch (err) {
       next(err)
     }

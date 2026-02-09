@@ -7,6 +7,9 @@ const userSchema = new Schema({
   picture: { type: String },
   isActivated: { type: Boolean, required: true, default: false },
   activationLink: { type: String },
+  friendsRequests: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+  friendsToAccept: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+  friends: [{ type: Schema.Types.ObjectId, ref: 'User' }],
 })
 
 export default model('User', userSchema)

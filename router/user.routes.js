@@ -17,10 +17,15 @@ const upload = multer({ storage })
 
 router.use(authMiddleware)
 
-router.post('/getUser', userContoller.getUser)
 router.post('/changeUserData', userContoller.changeUserData)
 router.post('/changeUserPassword', userContoller.changeUserPassword)
 router.post('/uploadProfileImage', upload.single('avatar'), userContoller.uploadProfileImage)
 router.post('/verifyProfile', userContoller.verifyProfile)
+router.post('/addFriend/:friendID', userContoller.addFriend)
+router.post('/acceptFriend', userContoller.acceptFriend)
+router.post('/deleteFriend', userContoller.deleteFriend)
+router.post('/cancelFriendRequest', userContoller.cancelFriendRequest)
+
+router.get('/friends/:userId', userContoller.getFriends)
 
 export default router

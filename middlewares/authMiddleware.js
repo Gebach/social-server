@@ -1,10 +1,9 @@
 import 'dotenv/config'
 import jwt from 'jsonwebtoken'
 
-export default function (err, req, res, next) {
-  console.log(err)
+export default function (req, res, next) {
   try {
-    const authHeader = req.headers.Authorization
+    const authHeader = req.headers.authorization
     if (!authHeader) return res.status(401).json({ message: 'Нет авторизации' })
 
     const token = authHeader.split(' ')[1]
@@ -12,6 +11,8 @@ export default function (err, req, res, next) {
 
     const userData = jwt.verify(token, process.env.JWT_ACCESS_TOKEN)
     req.user = userData
+    next()
+    console.log('auth middleware', req.params)
   } catch (err) {
     return res.status(401).json({ message: 'токен невалиден' })
   }

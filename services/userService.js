@@ -3,7 +3,6 @@ import ApiError from '../exceptions/apiError.js'
 import userModel from '../models/userModel.js'
 import bcrypt from 'bcrypt'
 import { v4 } from 'uuid'
-import jwt from 'jsonwebtoken'
 import tokenService from './tokenService.js'
 import tokenModel from '../models/tokenModel.js'
 
@@ -15,7 +14,12 @@ async function tokenToDB(user) {
   return {
     userData: {
       accessToken: tokens.accessToken,
-      user: userDto,
+      user: {
+        userInfo: userDto,
+        friendsRequests: user.friendsRequests,
+        friendsToAccept: user.friendsToAccept,
+        friends: user.friends,
+      },
       userProfilePicture: user.picture,
     },
     refreshToken: tokens.refreshToken,
@@ -59,10 +63,8 @@ class UserServices {
       throw ApiError.UnauthorizedError()
     }
     const userData = tokenService.verifyRefreshToken(refreshToken)
-    console.log('REFRESH USERDATA', userData)
     const tokenFromDB = await tokenModel.findOne({ refreshToken })
-    console.log('REFRESH USER DATA', userData)
-    console.log('REFRESH TOKEN FROM DB', tokenFromDB)
+    console.log(userData, '||||||||||||||||', tokenFromDB)
     if (!userData || !tokenFromDB) {
       throw ApiError.UnauthorizedError()
     }
@@ -72,29 +74,39 @@ class UserServices {
 
   async getUsers() {
     const users = await userModel.find()
-    return users
+    if (users.length == 0) {
+      throw ApiError.BadRequest('Такого пользователя не существует')
+    }
+    return users.map(u => ({
+      ...new UserDto(u),
+      userProfilePicture: u.picture,
+    }))
   }
 
   async getUser(userID) {
     const user = await userModel.findById(userID)
+    if (!user) {
+      throw ApiError.BadRequest('Такого пользователя не существует')
+    }
     const userDto = new UserDto(user)
     return {
-      user: userDto,
+      user: {
+        userInfo: userDto,
+        friendsRequest: user.friendsRequests,
+        friendsToAccept: user.friendsToAccept,
+        friends: user.friends,
+      },
       userProfilePicture: user.picture,
     }
   }
 
   async changeUserData(userData) {
-    console.log('USERDATA', userData)
     const user = await userModel.findByIdAndUpdate(userData.id, userData, { new: true })
     await user.save()
-    console.log('SERVICVE', user)
     return new UserDto(user)
   }
 
   async changeUserPassword(oldPassword, newPassword, id) {
-    console.log('ID', id)
-    console.log('OLDPASSWORD', oldPassword)
     const user = await userModel.findById(id)
     const checkPassword = await bcrypt.compare(oldPassword, user.password)
     if (!checkPassword) {
@@ -111,13 +123,11 @@ class UserServices {
   }
 
   async uploadProfileImage(path, id) {
-    console.log('PATH', path, id)
     const userExists = await userModel.exists({ _id: id })
     if (!userExists) {
       throw ApiError.BadRequest('Такого пользователя не существует')
     }
     const user = await userModel.findByIdAndUpdate(id, { picture: path }, { new: true })
-    console.log('USER', user)
 
     return user.picture
   }
@@ -129,6 +139,100 @@ class UserServices {
     }
     user.isActivated = true
     return user.save()
+  }
+
+  async addFriend(friendID, userId) {
+    const user = await userModel.findByIdAndUpdate(userId, { $addToSet: { friendsRequests: friendID } })
+    const friend = await userModel.findByIdAndUpdate(friendID, { $addToSet: { friendsToAccept: userId } })
+    if (!user || !friend) {
+      throw ApiError.BadRequest('Такого пользователя не существует')
+    }
+
+    return {
+      status: 'success',
+      message: 'Your request has been sent',
+    }
+  }
+
+  async acceptFriend(friendID, userId) {
+    const user = await userModel.updateOne(
+      { _id: userId },
+      { $addToSet: { friends: friendID }, $pull: { friendsToAccept: friendID } },
+    )
+    const friend = await userModel.updateOne(
+      { _id: friendID },
+      { $addToSet: { friends: userId }, $pull: { friendsRequests: userId } },
+    )
+    if (!user || !friend) {
+      throw ApiError.BadRequest('Такого пользователя не существует')
+    }
+
+    return {
+      status: 'success',
+      message: 'You are friends now!',
+    }
+  }
+
+  async deleteFriend(friendID, userId) {
+    const user = await userModel.updateOne(
+      { _id: userId, friends: friendID },
+      {
+        $addToSet: { friendsToAccept: friendID },
+        $pull: { friends: friendID },
+      },
+    )
+    const friend = await userModel.updateOne(
+      { _id: friendID, friends: userId },
+      {
+        $addToSet: { friendsRequests: userId },
+        $pull: { friends: userId },
+      },
+    )
+    if (!user || !friend) {
+      throw ApiError.BadRequest('Такого пользователя не существует')
+    }
+
+    return {
+      status: 'success',
+      message: 'Your friend was removed to subscribers',
+    }
+  }
+
+  async cancelFriendRequest(friendID, userId) {
+    const user = await userModel.findByIdAndUpdate(userId, { $pull: { friendsRequests: friendID } })
+    const friend = await userModel.findByIdAndUpdate(friendID, { $pull: { friendsToAccept: userId } })
+    if (!user || !friend) {
+      throw ApiError.BadRequest('Такого пользователя не существует')
+    }
+
+    return {
+      status: 'success',
+      message: "You've cutted all ties with your friend :(((",
+    }
+  }
+
+  async getFriends(userId) {
+    const user = await userModel
+      .findById(userId)
+      .populate('friends')
+      .populate('friendsRequests')
+      .populate('friendsToAccept')
+
+    if (!user) {
+      throw ApiError.BadRequest('Такого пользователя не существует')
+    }
+
+    return {
+      friends: user.friends.map(f => {
+        return { ...new UserDto(f), userProfilePicture: f.picture }
+      }),
+      friendsOut: user.friendsRequests.map(f => {
+        return { ...new UserDto(f), userProfilePicture: f.picture }
+      }),
+      friendsIn: user.friendsToAccept.map(f => {
+        return { ...new UserDto(f), userProfilePicture: f.picture }
+      }),
+    }
   }
 }
 

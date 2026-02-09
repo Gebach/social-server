@@ -29,7 +29,6 @@ class emailService {
       subject: 'Verify your profile!',
       html: `<p>To verify your account follow the link: <a href="${process.env.ORIGIN_URL}/api/verify/${user.activationLink}" target="_blank"><b>VERIFY MY ACCOUNT</b></a></p>`,
     })
-    console.log(info)
 
     return info
   }
